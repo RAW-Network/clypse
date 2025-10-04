@@ -406,7 +406,12 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const handleHomeNavigation = (e) => {
     e.preventDefault();
-    window.location.reload();
+    const isHomePage = window.location.hash === '' || window.location.hash === '#/';
+    if (isHomePage) {
+      window.location.reload();
+    } else {
+      window.location.href = '/';
+    }
   };
 
   logoLink.addEventListener('click', handleHomeNavigation);

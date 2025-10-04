@@ -17,6 +17,25 @@ const sanitizeFilename = (filename) => {
     .replace(/[^a-zA-Z0-9_.-]/g, '');
 };
 
+const moveFileCrossDevice = (source, destination) => {
+    return new Promise((resolve, reject) => {
+        const readStream = fs.createReadStream(source);
+        const writeStream = fs.createWriteStream(destination);
+
+        readStream.on('error', reject);
+        writeStream.on('error', reject);
+
+        writeStream.on('finish', () => {
+            fs.unlink(source, (err) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
+
+        readStream.pipe(writeStream);
+    });
+};
+
 export const getVideos = async (req, res, next) => {
   try {
     const videos = await videoService.getAllVideos();
@@ -116,7 +135,7 @@ export const uploadVideoChunk = async (req, res, next) => {
   }
 
   if (parseInt(fileSize, 10) > config.maxUploadSize) {
-    return next(new ApiError(413, `File size exceeds the limit of ${config.maxUploadSizeString}`));
+    return next(new ApiError(413, `File size exceeds the limit of ${config.maxUploadSizeString}.`));
   }
 
   const tmpDir = path.join(config.paths.data, 'tmp', uploadId);
@@ -148,8 +167,11 @@ export const uploadVideoChunk = async (req, res, next) => {
           const finalFileName = `${uuidv4()}${fileExt}`;
           const finalFilePath = path.join(config.paths.videos, finalFileName);
 
-          await fs.promises.rename(tempFilePath, finalFilePath);
-          await fs.promises.rm(tmpDir, { recursive: true, force: true });
+          await moveFileCrossDevice(tempFilePath, finalFilePath);
+          
+          await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(err => {
+              logger.warn('Failed to cleanup temp upload directory', { directory: tmpDir, error: err.message });
+          });
           
           const originalBasename = path.basename(originalFileName, fileExt);
           const title = rawFileTitle ? decodeURIComponent(rawFileTitle) : originalBasename.replace(/_/g, ' ');
