@@ -37,9 +37,6 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
-# Ensure data directory exists for runtime data
-RUN mkdir -p /home/app/clypse/data
-
 # Make entrypoint script executable
 RUN chmod +x ./entrypoint.sh
 
