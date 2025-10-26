@@ -430,7 +430,7 @@ main {
   background-color: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
-  padding: 1.5rem 2rem 2rem;
+  padding: 2rem;
   transition: box-shadow 0.2s ease-in-out;
 }
 
@@ -501,7 +501,7 @@ main {
 }
 
 .upload-form .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .upload-form .input-field,
@@ -591,10 +591,14 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  margin-top: 1.25rem;
+  margin-top: 0;
   max-height: 200px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+#file-list-container:not(:empty) {
+  margin-bottom: 1.5rem;
 }
 
 .file-list-item {
@@ -669,7 +673,7 @@ main {
 .upload-actions {
   display: flex;
   gap: 0.75rem;
-  margin-top: 1.25rem;
+  margin-top: 0 !important;
 }
 
 .upload-actions .upload-button {
