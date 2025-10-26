@@ -3,12 +3,10 @@ import path from 'path';
 import { Writable } from 'stream';
 import * as videoService from '../../services/video.service.js';
 import { streamVideoFile } from '../../services/streaming.service.js';
-import { processNewFile } from '../../services/update.service.js';
 import ApiError from '../../utils/ApiError.js';
 import config from '../../config/index.js';
 import logger from '../../utils/logger.js';
 import { escapeHtml } from '../../utils/escape.js';
-import { v4 as uuidv4 } from 'uuid';
 
 const sanitizeFilename = (filename) => {
   if (typeof filename !== 'string') return '';
@@ -34,6 +32,17 @@ const moveFileCrossDevice = (source, destination) => {
 
         readStream.pipe(writeStream);
     });
+};
+
+export const getAppConfig = (req, res, next) => {
+  res.status(200).json({
+    status: 'success',
+    data: {
+      maxUploadCount: config.maxUploadCount,
+      maxUploadSize: config.maxUploadSize,
+      maxUploadSizeString: config.maxUploadSizeString,
+    }
+  });
 };
 
 export const getVideos = async (req, res, next) => {
@@ -138,9 +147,7 @@ export const uploadVideoChunk = async (req, res, next) => {
     return next(new ApiError(413, `File size exceeds the limit of ${config.maxUploadSizeString}.`));
   }
 
-  const tmpDir = path.join(config.paths.data, 'tmp', uploadId);
-  fs.mkdirSync(tmpDir, { recursive: true });
-  const chunkPath = path.join(tmpDir, chunkIndex);
+  const chunkPath = path.join(config.paths.uploads, `${uploadId}.clypse-chunk.${chunkIndex}`);
 
   try {
     await fs.promises.writeFile(chunkPath, req.body);
@@ -148,48 +155,49 @@ export const uploadVideoChunk = async (req, res, next) => {
     const isLastChunk = parseInt(chunkIndex, 10) === parseInt(totalChunks, 10) - 1;
 
     if (isLastChunk) {
-      const tempFileName = `__temp_${uuidv4()}`;
-      const tempFilePath = path.join(tmpDir, tempFileName);
+      const tempFilePath = path.join(config.paths.uploads, `${uploadId}.clypse-temp`);
       const writeStream = fs.createWriteStream(tempFilePath);
+      const chunkPaths = [];
       
       for (let i = 0; i < parseInt(totalChunks, 10); i++) {
-        const currentChunkPath = path.join(tmpDir, i.toString());
+        const currentChunkPath = path.join(config.paths.uploads, `${uploadId}.clypse-chunk.${i}`);
         if (!fs.existsSync(currentChunkPath)) {
           throw new ApiError(500, `Missing chunk ${i} for upload ${uploadId}`);
         }
         const chunkBuffer = await fs.promises.readFile(currentChunkPath);
         writeStream.write(chunkBuffer);
+        chunkPaths.push(currentChunkPath);
       }
       writeStream.end();
 
       writeStream.on('finish', async () => {
         try {
-          const finalFileName = `${uuidv4()}${fileExt}`;
-          const finalFilePath = path.join(config.paths.videos, finalFileName);
+          const finalUploadPath = path.join(config.paths.uploads, originalFileName);
 
-          await moveFileCrossDevice(tempFilePath, finalFilePath);
+          await moveFileCrossDevice(tempFilePath, finalUploadPath);
           
-          await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(err => {
-              logger.warn('Failed to cleanup temp upload directory', { directory: tmpDir, error: err.message });
-          });
+          for (const p of chunkPaths) {
+            await fs.promises.unlink(p).catch(err => {
+                logger.warn('Failed to cleanup chunk file', { file: p, error: err.message });
+            });
+          }
           
-          const originalBasename = path.basename(originalFileName, fileExt);
-          const title = rawFileTitle ? decodeURIComponent(rawFileTitle) : originalBasename.replace(/_/g, ' ');
-          
-          const newVideo = await processNewFile(finalFileName, title, originalFileName);
+          const title = rawFileTitle ? decodeURIComponent(rawFileTitle) : path.basename(originalFileName, fileExt).replace(/_/g, ' ');
           
           res.status(201).json({
             status: 'success',
-            message: `"${newVideo.title}" has been uploaded!`,
-            data: newVideo,
+            message: `"${title}" has been uploaded and is queued for processing!`,
           });
         } catch (error) {
           next(error);
         }
       });
 
-      writeStream.on('error', (err) => {
-        fs.promises.rm(tmpDir, { recursive: true, force: true });
+      writeStream.on('error', async (err) => {
+        await fs.promises.unlink(tempFilePath).catch(() => {});
+        for (const p of chunkPaths) {
+          await fs.promises.unlink(p).catch(() => {});
+        }
         next(new ApiError(500, 'Failed to assemble file'));
       });
 
@@ -207,11 +215,20 @@ export const cancelUpload = async (req, res, next) => {
     return next(new ApiError(400, 'uploadId is required'));
   }
   
-  const tmpDir = path.join(config.paths.data, 'tmp', uploadId);
+  const uploadDir = config.paths.uploads;
 
   try {
-    if (fs.existsSync(tmpDir)) {
-      await fs.promises.rm(tmpDir, { recursive: true, force: true });
+    const files = await fs.promises.readdir(uploadDir);
+    const uploadFiles = files.filter(f => f.startsWith(uploadId + '.clypse-'));
+    
+    let cleaned = false;
+    for (const file of uploadFiles) {
+      const filePath = path.join(uploadDir, file);
+      await fs.promises.unlink(filePath);
+      cleaned = true;
+    }
+
+    if (cleaned) {
       logger.info('Cancelled upload and cleaned up temp files', { uploadId });
     }
     res.status(200).json({ status: 'success', message: 'Upload cancelled' });

@@ -12,9 +12,34 @@ import ApiError from '../utils/ApiError.js';
 import { escapeHtml } from '../utils/escape.js';
 
 const execFilePromise = util.promisify(execFile);
-export const processingFiles = new Set();
+const processingQueue = [];
+let isProcessing = false;
 
 const FFMPEG_TIMEOUT = 5 * 60 * 1000;
+
+const sanitizeFilename = (filename) => {
+  if (typeof filename !== 'string') return '';
+  return filename
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_.-]/g, '');
+};
+
+const getUniqueFileName = async (fileName) => {
+    let finalName = fileName;
+    let counter = 1;
+    const ext = path.extname(fileName);
+    const base = path.basename(fileName, ext);
+
+    let existsOnDisk = fs.existsSync(path.join(config.paths.videos, finalName));
+    let existsInDb = await videoService.findVideoByFilename(finalName);
+
+    while (existsOnDisk || existsInDb) {
+        finalName = `${base} (${counter++})${ext}`;
+        existsOnDisk = fs.existsSync(path.join(config.paths.videos, finalName));
+        existsInDb = await videoService.findVideoByFilename(finalName);
+    }
+    return finalName;
+};
 
 const getFileMetadata = async (filePath) => {
   try {
@@ -57,39 +82,48 @@ const generateThumbnail = async (filePath, thumbnailDir, thumbnailFilename, dura
   throw new Error('Failed to generate a valid thumbnail.');
 };
 
-export const processNewFile = async (fileName, titleOverride, originalFileName) => {
-  if (processingFiles.has(fileName)) {
-    logger.warn('File is already being processed, skipping.', { file: fileName });
-    return;
-  }
-  
-  if (!config.allowedVideoExtensions.has(path.extname(fileName).toLowerCase())) {
-    throw new ApiError(400, 'Invalid file type.');
-  }
+const scanFile = async (filePath) => {
+  logger.info(`Scanning file: ${filePath}`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  logger.info(`Scan complete for file: ${filePath}`);
+};
 
+const processUploadedFile = async (tempFilePath, originalFileName) => {
   try {
-    processingFiles.add(fileName);
-    const filePath = path.join(config.paths.videos, fileName);
-    
-    if (!fs.existsSync(filePath)) {
-        throw new ApiError(404, `File not found at path: ${filePath}`);
+    if (!fs.existsSync(tempFilePath)) {
+        logger.warn('File not found for processing, it may have been moved or deleted.', { file: tempFilePath });
+        return;
     }
 
-    const metadata = await getFileMetadata(filePath);
+    if (!config.allowedVideoExtensions.has(path.extname(originalFileName).toLowerCase())) {
+        logger.warn('Invalid file type, deleting.', { file: originalFileName });
+        await fs.promises.unlink(tempFilePath);
+        return;
+    }
+
+    await scanFile(tempFilePath);
+
+    const sanitizedName = sanitizeFilename(originalFileName);
+    const uniqueFileName = await getUniqueFileName(sanitizedName);
+    const finalVideoPath = path.join(config.paths.videos, uniqueFileName);
+
+    await fs.promises.rename(tempFilePath, finalVideoPath);
     
-    const videoBasename = path.basename(fileName, path.extname(fileName));
+    const metadata = await getFileMetadata(finalVideoPath);
+    
+    const videoBasename = path.basename(uniqueFileName, path.extname(uniqueFileName));
     const thumbnailFilename = `${videoBasename}.png`;
     
-    await generateThumbnail(filePath, config.paths.thumbnails, thumbnailFilename, metadata.duration);
+    await generateThumbnail(finalVideoPath, config.paths.thumbnails, thumbnailFilename, metadata.duration);
 
-    const titleBasis = titleOverride || path.basename(originalFileName, path.extname(originalFileName));
+    const titleBasis = path.basename(originalFileName, path.extname(originalFileName));
     const rawTitle = titleBasis.replace(/_/g, ' ');
     const videoTitle = escapeHtml(rawTitle);
 
     const videoData = {
       title: videoTitle,
-      fileName: fileName,
-      originalFileName: originalFileName || fileName,
+      fileName: uniqueFileName,
+      originalFileName: originalFileName,
       thumbnailFilename: thumbnailFilename,
       ...metadata
     };
@@ -97,12 +131,11 @@ export const processNewFile = async (fileName, titleOverride, originalFileName) 
     const newVideoEntry = await videoService.createVideoEntry(videoData);
     broadcast({ type: 'video:added', payload: newVideoEntry });
     logger.info(`Successfully processed and added video.`, { uuid: newVideoEntry.uuid, title: newVideoEntry.title });
-    return newVideoEntry;
   } catch (error) {
-    logger.error('FILE_PROCESSING_ERROR', { file: fileName, error: error.message });
-    throw error;
-  } finally {
-    processingFiles.delete(fileName);
+    logger.error('FILE_PROCESSING_ERROR', { file: originalFileName, error: error.message });
+    if (fs.existsSync(tempFilePath)) {
+        await fs.promises.unlink(tempFilePath).catch(e => logger.error('FAILED_TO_CLEANUP_FAILED_UPLOAD', { file: tempFilePath, error: e.message }));
+    }
   }
 };
 
@@ -123,84 +156,94 @@ const removeFile = async (fileName) => {
   }
 };
 
+const addToQueue = (filePath) => {
+    if (!processingQueue.some(item => item.filePath === filePath)) {
+        const originalFileName = path.basename(filePath);
+        processingQueue.push({ filePath, originalFileName });
+        logger.info('File added to processing queue.', { file: originalFileName, queueSize: processingQueue.length });
+        processQueue();
+    }
+};
+
+export const processQueue = async () => {
+    if (isProcessing || processingQueue.length === 0) {
+        return;
+    }
+
+    isProcessing = true;
+    const { filePath, originalFileName } = processingQueue.shift();
+
+    logger.info(`Processing file from queue: ${originalFileName}`);
+    await processUploadedFile(filePath, originalFileName);
+
+    isProcessing = false;
+    setImmediate(processQueue);
+};
+
 export const initializeFileWatcher = () => {
+  if (!fs.existsSync(config.paths.uploads)) fs.mkdirSync(config.paths.uploads, { recursive: true });
   if (!fs.existsSync(config.paths.videos)) fs.mkdirSync(config.paths.videos, { recursive: true });
   if (!fs.existsSync(config.paths.thumbnails)) fs.mkdirSync(config.paths.thumbnails, { recursive: true });
   
-  const watcher = chokidar.watch(config.paths.videos, {
-    ignored: /(^|[\/\\])\../,
+  const uploadWatcher = chokidar.watch(config.paths.uploads, {
+    ignored: [
+        /(^|[\/\\])\../,
+        /.*\.clypse-chunk\.\d+$/,
+        /.*\.clypse-temp$/,
+    ],
     persistent: true,
     awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 }
   });
 
-  const isUuidFileName = (name) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/.test(name);
-
-  watcher
-    .on('add', async (filePath) => {
-      const originalFileName = path.basename(filePath);
-      
-      if (isUuidFileName(originalFileName) || processingFiles.has(originalFileName)) {
-        return;
-      }
-      
-      try {
-        logger.info('Manual file addition detected. Standardizing and processing.', { file: originalFileName });
-        const fileExt = path.extname(originalFileName).toLowerCase();
-
-        if (!config.allowedVideoExtensions.has(fileExt)) {
-            logger.warn('Unsupported file type by watcher, skipping.', { file: originalFileName });
-            return;
-        }
-
-        const newFileName = `${uuidv4()}${fileExt}`;
-        const newFilePath = path.join(config.paths.videos, newFileName);
-        
-        await fs.promises.rename(filePath, newFilePath);
-        logger.info('File watcher renamed file.', { from: originalFileName, to: newFileName });
-        
-        await processNewFile(newFileName, null, originalFileName);
-
-      } catch (error) {
-        logger.error('Manual file processing failed.', { file: originalFileName, error: error.message });
-      }
+  uploadWatcher
+    .on('add', (filePath) => {
+        logger.info('File detected in uploads directory.', { file: path.basename(filePath) });
+        addToQueue(filePath);
     })
+    .on('error', (error) => logger.error('UPLOAD_WATCHER_ERROR', { error: error.message }));
+
+  const videoWatcher = chokidar.watch(config.paths.videos, {
+    ignored: /(^|[\/\\])\..|.*[\/\\]thumbnails[\/\\].*/,
+    persistent: true,
+  });
+
+  videoWatcher
     .on('unlink', (filePath) => removeFile(path.basename(filePath)))
-    .on('error', (error) => logger.error('WATCHER_ERROR', { error: error.message }));
+    .on('error', (error) => logger.error('VIDEO_WATCHER_ERROR', { error: error.message }));
   
-  logger.info(`File watcher initialized.`, { directory: config.paths.videos });
+  logger.info(`File watchers initialized.`);
 };
 
 export const syncOnStartup = async () => {
     logger.info('Performing startup directory sync...');
     try {
-        const filesInDir = new Set(fs.readdirSync(config.paths.videos));
+        const filesInVideosDir = new Set(
+            fs.readdirSync(config.paths.videos)
+              .filter(file => !fs.statSync(path.join(config.paths.videos, file)).isDirectory())
+        );
         const videosInDb = await videoService.getAllVideos();
-        const dbFileNames = new Set(videosInDb.map(v => v.file_name));
-        const isUuidFileName = (name) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/.test(name);
 
         for (const dbVideo of videosInDb) {
-            if (!filesInDir.has(dbVideo.file_name)) {
-                logger.info(`File from DB not found in directory, removing entry: ${dbVideo.file_name}`);
+            if (!filesInVideosDir.has(dbVideo.file_name)) {
+                logger.info(`[SYNC] File from DB not found in directory, removing entry: ${dbVideo.file_name}`);
                 await removeFile(dbVideo.file_name);
             }
         }
 
-        for (const fileName of filesInDir) {
-            if (dbFileNames.has(fileName)) continue;
-
-            if (isUuidFileName(fileName)) {
-                logger.info(`Found unsynced UUID file: ${fileName}. Processing...`);
-                await processNewFile(fileName, null, fileName);
-            } else {
-                logger.info(`Found unsynced manual file: ${fileName}. Renaming and processing...`);
-                const fileExt = path.extname(fileName).toLowerCase();
-                const newFileName = `${uuidv4()}${fileExt}`;
-                const oldFilePath = path.join(config.paths.videos, fileName);
-                const newFilePath = path.join(config.paths.videos, newFileName);
-                await fs.promises.rename(oldFilePath, newFilePath);
-                await processNewFile(newFileName, null, fileName);
+        const filesInUploadsDir = fs.readdirSync(config.paths.uploads, { withFileTypes: true });
+        for (const file of filesInUploadsDir) {
+            if (file.isFile()) {
+                const filePath = path.join(config.paths.uploads, file.name);
+                if (file.name.endsWith('.clypse-temp') || file.name.includes('.clypse-chunk.')) {
+                    logger.info(`[SYNC] Cleaning up stale temp file: ${file.name}`);
+                    await fs.promises.unlink(filePath).catch(e => logger.error('FAILED_TO_CLEANUP_STALE_TEMP_FILE', { file: file.name, error: e.message }));
+                } else {
+                    logger.info(`[SYNC] Found unsynced file in uploads dir, adding to queue: ${file.name}`);
+                    addToQueue(filePath);
+                }
             }
         }
+
         logger.info('Startup sync complete.');
     } catch (error) {
         logger.error('STARTUP_SYNC_ERROR', { error: error.message });

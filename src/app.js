@@ -17,7 +17,7 @@ app.use('/api/upload', express.raw({
 
 app.use(express.json()); 
 app.use(express.static(config.paths.public));
-app.use('/data/thumbnails', express.static(config.paths.thumbnails));
+app.use('/videos/thumbnails', express.static(config.paths.thumbnails));
 
 app.use(videoRoutes);
 

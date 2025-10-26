@@ -49,9 +49,11 @@ It features auto-thumbnails, smooth streaming, with modern UI to make your conte
         volumes:
           - ./data:/data
           - ./videos:/videos
+          - ./uploads:/uploads
         environment:
           - TZ=UTC
           - MAX_UPLOAD_SIZE=1G
+          - MAX_UPLOAD_COUNT=1
         restart: unless-stopped
     ```
 
@@ -76,10 +78,11 @@ It features auto-thumbnails, smooth streaming, with modern UI to make your conte
 
 Customize behavior with environment variables.
 
-| Variable          | Description                     | Default |
-|-------------------|---------------------------------|---------|
-| `TZ`              | Timezone for container          | UTC     |
-| `MAX_UPLOAD_SIZE` | Max upload size for video files | 1G      |
+| Variable          | Description                     | Default  |
+|-------------------|---------------------------------|----------|
+| `TZ`              | Timezone for container          | UTC      |
+| `MAX_UPLOAD_SIZE` | Max upload size for video files | No Limit |
+| `MAX_UPLOAD_COUNT`| Max upload file in one sesion   | No Limit |
 
 ---
 

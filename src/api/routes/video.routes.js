@@ -4,6 +4,8 @@ import { validateUuid } from '../middlewares/validator.js';
 
 const router = Router();
 
+router.get('/api/config', videoController.getAppConfig);
+
 router.post('/api/upload', videoController.uploadVideoChunk);
 router.post('/api/upload-cancel', videoController.cancelUpload);
 

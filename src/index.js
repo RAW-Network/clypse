@@ -4,28 +4,25 @@ import config from './config/index.js';
 import logger from './utils/logger.js';
 import { initializeDatabase } from './config/database.js';
 import { initWebSocketServer } from './services/websocket.service.js';
-import { initializeFileWatcher, syncOnStartup } from './services/update.service.js';
+import { initializeFileWatcher, syncOnStartup, processQueue } from './services/update.service.js';
 import fs from 'fs';
 import path from 'path';
 
 const cleanupOldTempFiles = () => {
-    const tmpDir = path.join(config.paths.data, 'tmp');
-    if (!fs.existsSync(tmpDir)) return;
+    const uploadDir = config.paths.uploads;
+    if (!fs.existsSync(uploadDir)) return;
 
     const oneHour = 60 * 60 * 1000;
 
-    const cleanup = (dir) => {
-        fs.readdir(dir, { withFileTypes: true }, (err, files) => {
-            if (err) {
-                logger.error('TEMP_CLEANUP_READ_ERROR', { directory: dir, error: err.message });
-                return;
-            }
+    fs.readdir(uploadDir, { withFileTypes: true }, (err, files) => {
+        if (err) {
+            logger.error('TEMP_CLEANUP_READ_ERROR', { directory: uploadDir, error: err.message });
+            return;
+        }
 
-            files.forEach(file => {
-                const filePath = path.join(dir, file.name);
-                if (file.isDirectory()) {
-                    cleanup(filePath); 
-                }
+        files.forEach(file => {
+            if (file.isFile() && (file.name.endsWith('.clypse-temp') || file.name.includes('.clypse-chunk.'))) {
+                const filePath = path.join(uploadDir, file.name);
 
                 fs.stat(filePath, (err, stats) => {
                     if (err) {
@@ -33,20 +30,18 @@ const cleanupOldTempFiles = () => {
                         return;
                     }
                     if (Date.now() - stats.mtime.getTime() > oneHour) {
-                        fs.rm(filePath, { recursive: true, force: true }, (err) => {
+                        fs.rm(filePath, { recursive: false, force: true }, (err) => {
                             if (err) {
                                 logger.error('TEMP_CLEANUP_DELETE_ERROR', { file: filePath, error: err.message });
                             } else {
-                                logger.info('Cleaned up old temp file/directory.', { path: filePath });
+                                logger.info('Cleaned up old temp file.', { path: filePath });
                             }
                         });
                     }
                 });
-            });
+            }
         });
-    };
-
-    cleanup(tmpDir);
+    });
 };
 
 process.env.TZ = config.timezone;
@@ -68,6 +63,8 @@ const startServer = async () => {
       await syncOnStartup();
       
       initializeFileWatcher();
+
+      processQueue();
     });
 
   } catch (error) {

@@ -1,6 +1,6 @@
 const parseSize = (sizeString) => {
   if (typeof sizeString !== 'string' || sizeString.length === 0) {
-    return 1 * 1024 * 1024 * 1024;
+    return Infinity;
   }
 
   const units = {
@@ -14,7 +14,7 @@ const parseSize = (sizeString) => {
   const match = sizeString.toUpperCase().match(regex);
 
   if (!match) {
-    return 1 * 1024 * 1024 * 1024;
+    return Infinity;
   }
 
   const size = parseInt(match[1], 10);
@@ -24,6 +24,7 @@ const parseSize = (sizeString) => {
 };
 
 const formatSize = (bytes) => {
+  if (bytes === Infinity) return 'Unlimited';
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];

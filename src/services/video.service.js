@@ -2,6 +2,7 @@ import db from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import ApiError from '../utils/ApiError.js';
 import config from '../config/index.js';
+import logger from '../utils/logger.js';
 
 export const getAllVideos = () => {
   return new Promise((resolve, reject) => {
@@ -40,7 +41,7 @@ export const findVideoByFilename = (filename) => {
 export const createVideoEntry = (videoData) => {
   return new Promise((resolve, reject) => {
     const newUuid = uuidv4();
-    const thumbnailPath = `/data/thumbnails/${videoData.thumbnailFilename}`;
+    const thumbnailPath = `/videos/thumbnails/${videoData.thumbnailFilename}`;
     const query = "INSERT INTO videos (uuid, title, file_name, original_file_name, thumbnail, width, height, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     const params = [
       newUuid,
@@ -63,6 +64,7 @@ export const createVideoEntry = (videoData) => {
         uuid: newUuid,
         title: videoData.title,
         thumbnail: thumbnailPath,
+        file_name: videoData.fileName,
         created_at: params[7],
         share_url: `/share/${newUuid}`,
         streaming_url: `/s/${newUuid}`
