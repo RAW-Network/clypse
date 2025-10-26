@@ -5,12 +5,12 @@ export const moveFileCrossDevice = (source, destination) => {
         const readStream = fs.createReadStream(source);
         const writeStream = fs.createWriteStream(destination);
 
-        readStream.on('error', reject);
-        writeStream.on('error', reject);
+        readStream.on('error', (err) => reject(`Read stream error: ${err.message}`));
+        writeStream.on('error', (err) => reject(`Write stream error: ${err.message}`));
 
         writeStream.on('finish', () => {
             fs.unlink(source, (err) => {
-                if (err) return reject(err);
+                if (err) return reject(`Unlink error: ${err.message}`);
                 resolve();
             });
         });

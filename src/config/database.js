@@ -6,13 +6,20 @@ import logger from '../utils/logger.js';
 const dbPath = config.paths.database;
 const dbDir = config.paths.data;
 
+// Kembalikan pengecekan dan pembuatan direktori data
 if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+    logger.info('Data directory created.', { path: dbDir });
+  } catch (err) {
+     logger.error('FAILED_TO_CREATE_DATA_DIR', { path: dbDir, error: err.message });
+     process.exit(1); // Keluar jika gagal membuat direktori penting ini
+  }
 }
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    logger.error('DATABASE_CONNECTION_ERROR', { error: err.message });
+    logger.error('DATABASE_CONNECTION_ERROR', { path: dbPath, error: err.message });
     process.exit(1);
   }
   logger.info('Database connected successfully.');

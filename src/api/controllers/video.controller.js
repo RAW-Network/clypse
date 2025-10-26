@@ -157,6 +157,16 @@ export const uploadVideoChunk = async (req, res, next) => {
           const finalUploadPath = path.join(config.paths.uploads, originalFileName);
 
           await moveFileCrossDevice(tempFilePath, finalUploadPath);
+
+          if (rawFileTitle) {
+            try {
+              const title = decodeURIComponent(rawFileTitle);
+              const metaFilePath = finalUploadPath + '.meta';
+              await fs.promises.writeFile(metaFilePath, title);
+            } catch (e) {
+              logger.warn('Failed to write .meta file', { file: finalUploadPath, error: e.message });
+            }
+          }
           
           for (const p of chunkPaths) {
             await fs.promises.unlink(p).catch(err => {

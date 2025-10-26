@@ -424,13 +424,67 @@ main {
 }
 
 .upload-form-container {
+  position: relative;
   max-width: 33rem;
   margin: 0;
   background-color: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   padding: 1.5rem 2rem 2rem;
+  transition: box-shadow 0.2s ease-in-out;
 }
+
+.upload-form-container.drag-over {
+  box-shadow: 0 0 0 3px hsla(var(--primary), 0.5);
+}
+
+.upload-form-container.drag-over::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: hsla(var(--background), 0.8);
+  backdrop-filter: blur(3px);
+  border-radius: 0.75rem;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.drag-overlay-content {
+  display: none;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 11;
+  pointer-events: none;
+  padding: 1rem;
+}
+
+.upload-form-container.drag-over .drag-overlay-content {
+  display: flex;
+}
+
+.drag-overlay-icon svg {
+  width: 48px;
+  height: 48px;
+  stroke: hsl(var(--foreground));
+  margin-bottom: 0.75rem;
+}
+
+.drag-overlay-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.4rem;
+}
+
+.drag-overlay-details {
+  font-size: 0.9rem;
+  color: hsl(var(--muted-foreground));
+}
+
 
 .upload-form-container h2 {
   font-size: 1.25rem;
@@ -533,6 +587,85 @@ main {
   text-overflow: ellipsis;
 }
 
+#file-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: hsl(var(--muted));
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.file-list-name {
+  flex-grow: 1;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-list-remove {
+  background: none;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-list-remove:hover {
+  color: hsl(var(--primary));
+}
+
+.file-list-remove svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+.file-progress-container {
+  flex-grow: 1;
+  height: 6px;
+  background-color: hsl(var(--border));
+  border-radius: 3px;
+  overflow: hidden;
+  display: none;
+}
+
+.file-progress-bar {
+  height: 100%;
+  width: 0%;
+  background-color: hsl(var(--primary));
+  transition: width 0.1s linear;
+}
+
+.upload-form.is-uploading .file-list-name {
+  display: none;
+}
+
+.upload-form.is-uploading .file-progress-container {
+  display: block;
+}
+
+.upload-form.is-uploading .file-list-remove {
+  display: none;
+}
+
 .upload-actions {
   display: flex;
   gap: 0.75rem;
@@ -553,6 +686,26 @@ main {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+#file-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+#file-list-container::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 10px;
+}
+
+#file-list-container::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 10px;
+  border: 2px solid hsl(var(--muted));
+}
+
+#file-list-container::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground));
+}
+
 
 #upload-section {
   scroll-margin-top: 80px;
