@@ -7,31 +7,13 @@ import ApiError from '../../utils/ApiError.js';
 import config from '../../config/index.js';
 import logger from '../../utils/logger.js';
 import { escapeHtml } from '../../utils/escape.js';
+import { moveFileCrossDevice } from '../../utils/fileUtils.js';
 
 const sanitizeFilename = (filename) => {
   if (typeof filename !== 'string') return '';
   return filename
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-Z0-9_.-]/g, '');
-};
-
-const moveFileCrossDevice = (source, destination) => {
-    return new Promise((resolve, reject) => {
-        const readStream = fs.createReadStream(source);
-        const writeStream = fs.createWriteStream(destination);
-
-        readStream.on('error', reject);
-        writeStream.on('error', reject);
-
-        writeStream.on('finish', () => {
-            fs.unlink(source, (err) => {
-                if (err) return reject(err);
-                resolve();
-            });
-        });
-
-        readStream.pipe(writeStream);
-    });
 };
 
 export const getAppConfig = (req, res, next) => {

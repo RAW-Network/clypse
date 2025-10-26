@@ -10,6 +10,7 @@ import * as videoService from './video.service.js';
 import { broadcast } from './websocket.service.js';
 import ApiError from '../utils/ApiError.js';
 import { escapeHtml } from '../utils/escape.js';
+import { moveFileCrossDevice } from '../utils/fileUtils.js';
 
 const execFilePromise = util.promisify(execFile);
 const processingQueue = [];
@@ -107,7 +108,7 @@ const processUploadedFile = async (tempFilePath, originalFileName) => {
     const uniqueFileName = await getUniqueFileName(sanitizedName);
     const finalVideoPath = path.join(config.paths.videos, uniqueFileName);
 
-    await fs.promises.rename(tempFilePath, finalVideoPath);
+    await moveFileCrossDevice(tempFilePath, finalVideoPath);
     
     const metadata = await getFileMetadata(finalVideoPath);
     
