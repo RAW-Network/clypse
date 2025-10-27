@@ -9,8 +9,8 @@ It features auto-thumbnails, smooth streaming, with modern UI to make your conte
 
 <table>
   <tr>
-    <td><img src="https://files.catbox.moe/q2ckqq.png" alt="App Preview" width="400"/></td>
-    <td><img src="https://files.catbox.moe/ciq5oh.png" alt="App Preview" width="400"/></td>
+    <td><img src="https://files.catbox.moe/qxxkvo.png" alt="App Preview" width="400"/></td>
+    <td><img src="https://files.catbox.moe/lm5vyl.png" alt="App Preview" width="400"/></td>
   </tr>
 </table>
 
@@ -143,6 +143,7 @@ clypse/
 │   ├── utils/
 │   │   ├── ApiError.js
 │   │   ├── escape.js
+│   │   ├── fileUtils.js
 │   │   ├── logger.js
 │   │   └── parseSize.js
 │   ├── app.js
