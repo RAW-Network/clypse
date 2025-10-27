@@ -43,7 +43,7 @@ export const streamVideo = async (req, res, next) => {
   try {
     const { uuid } = req.params;
     const video = await videoService.getVideoByUuid(uuid);
-    streamVideoFile(req, res, video);
+    await streamVideoFile(req, res, video);
   } catch (error) {
     next(error);
   }

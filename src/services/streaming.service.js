@@ -1,18 +1,21 @@
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
 import config from '../config/index.js';
 import logger from '../utils/logger.js';
 import ApiError from '../utils/ApiError.js';
 
-export const streamVideoFile = (req, res, video) => {
+export const streamVideoFile = async (req, res, video) => {
   const videoPath = path.join(config.paths.videos, video.file_name);
   
-  if (!fs.existsSync(videoPath)) {
+  try {
+    await fsp.access(videoPath, fs.constants.F_OK);
+  } catch (e) {
     logger.error('FILE_NOT_FOUND', { path: videoPath });
     throw new ApiError(404, 'Video source file is missing from disk.');
   }
 
-  const stat = fs.statSync(videoPath);
+  const stat = await fsp.stat(videoPath);
   const fileSize = stat.size;
   const range = req.headers.range;
 
@@ -35,6 +38,12 @@ export const streamVideoFile = (req, res, video) => {
       'Content-Type': 'video/mp4',
     };
     res.writeHead(206, head);
+
+    file.on('error', (err) => {
+      logger.error('STREAM_ERROR', { error: err.message, path: videoPath });
+      res.end();
+    });
+
     file.pipe(res);
   } else {
     const head = {
@@ -42,6 +51,14 @@ export const streamVideoFile = (req, res, video) => {
       'Content-Type': 'video/mp4',
     };
     res.writeHead(200, head);
-    fs.createReadStream(videoPath, { highWaterMark: 1024 * 1024 }).pipe(res);
+
+    const file = fs.createReadStream(videoPath, { highWaterMark: 1024 * 1024 });
+    
+    file.on('error', (err) => {
+      logger.error('STREAM_ERROR', { error: err.message, path: videoPath });
+      res.end();
+    });
+    
+    file.pipe(res);
   }
 };

@@ -8,7 +8,12 @@ import ApiError from './utils/ApiError.js';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  frameguard: false
+}));
 
 app.use('/api/upload', express.raw({
   type: 'application/octet-stream',
