@@ -178,7 +178,7 @@ export const uploadVideoChunk = async (req, res, next) => {
           
           res.status(201).json({
             status: 'success',
-            message: `"${title}" has been uploaded and is queued for processing!`,
+            message: `${title} has been uploaded and is queued for processing!`,
           });
         } catch (error) {
           next(error);

@@ -388,10 +388,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           const response = await uploadChunk(i);
           if (i === totalChunks - 1) {
             progressBar.style.width = '100%';
-            if (!baseTitle) {
-                const result = JSON.parse(response);
-                showToast(result.message);
-            }
           }
         }
         return file.name;
@@ -638,7 +634,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const closeModal = () => {
     videoPlayer.pause();
-    videoPlayer.src = '';
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
     modal.style.display = 'none';
   };
 

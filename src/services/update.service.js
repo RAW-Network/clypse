@@ -123,6 +123,27 @@ const processUploadedFile = async (tempFilePath, originalFileName) => {
 
     await moveFileCrossDevice(tempFilePath, finalVideoPath);
 
+    logger.info('Optimizing video for streaming (faststart)...', { file: uniqueFileName });
+    const tempFaststartPath = finalVideoPath + '.faststart.mp4';
+    const faststartArgs = [
+        '-i', finalVideoPath,
+        '-c', 'copy',
+        '-movflags', '+faststart',
+        tempFaststartPath
+    ];
+
+    try {
+        await execFilePromise('ffmpeg', faststartArgs, { timeout: FFMPEG_TIMEOUT });
+        await fs.promises.rename(tempFaststartPath, finalVideoPath);
+        logger.info('Video optimization (faststart) successful.', { file: uniqueFileName });
+    } catch (error) {
+        logger.error('FFMPEG_FASTSTART_ERROR', { error: error.message, file: uniqueFileName });
+        if (fs.existsSync(tempFaststartPath)) {
+            await fs.promises.unlink(tempFaststartPath);
+        }
+        logger.warn('Continuing with unoptimized file.', { file: uniqueFileName });
+    }
+
     const metadata = await getFileMetadata(finalVideoPath);
 
     const videoBasename = path.basename(uniqueFileName, path.extname(uniqueFileName));
