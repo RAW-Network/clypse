@@ -6,14 +6,13 @@ import logger from '../utils/logger.js';
 const dbPath = config.paths.database;
 const dbDir = config.paths.data;
 
-// Kembalikan pengecekan dan pembuatan direktori data
 if (!fs.existsSync(dbDir)) {
   try {
     fs.mkdirSync(dbDir, { recursive: true });
     logger.info('Data directory created.', { path: dbDir });
   } catch (err) {
      logger.error('FAILED_TO_CREATE_DATA_DIR', { path: dbDir, error: err.message });
-     process.exit(1); // Keluar jika gagal membuat direktori penting ini
+     process.exit(1);
   }
 }
 
@@ -26,7 +25,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 export const initializeDatabase = () => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const query = `
       CREATE TABLE IF NOT EXISTS videos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -136,8 +136,13 @@ clypse/
 │   │   ├── database.js
 │   │   └── index.js
 │   ├── services/
+│   │   ├── fileProcessor.service.js
+│   │   ├── fileWatcher.service.js
+│   │   ├── queue.service.js
+│   │   ├── share.service.js
+│   │   ├── startup.service.js
 │   │   ├── streaming.service.js
-│   │   ├── update.service.js
+│   │   ├── upload.service.js
 │   │   ├── video.service.js
 │   │   └── websocket.service.js
 │   ├── utils/

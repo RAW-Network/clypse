@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import ApiError from '../utils/ApiError.js';
 import config from '../config/index.js';
 import logger from '../utils/logger.js';
+import fsp from 'fs/promises';
+import path from 'path';
+import { broadcast } from './websocket.service.js';
 
 export const getAllVideos = () => {
   return new Promise((resolve, reject) => {
@@ -86,4 +89,26 @@ export const deleteVideoByFilename = (filename) => {
       });
     });
   });
+};
+
+export const deleteVideoData = async (fileName, broadcastUpdate = true) => {
+  logger.info(`File removal triggered.`, { file: fileName });
+  try {
+    const removedUuid = await deleteVideoByFilename(fileName);
+    if (removedUuid) {
+      const videoBasename = path.basename(fileName, path.extname(fileName));
+      const thumbnailPath = path.join(config.paths.thumbnails, `${videoBasename}.png`);
+      try {
+        await fsp.access(thumbnailPath);
+        await fsp.unlink(thumbnailPath);
+      } catch {}
+
+      if (broadcastUpdate) {
+        broadcast({ type: 'video:deleted', payload: { uuid: removedUuid } });
+      }
+      logger.info(`Successfully removed video entry and thumbnail.`, { uuid: removedUuid });
+    }
+  } catch (error) {
+    logger.error('FILE_REMOVAL_ERROR', { file: fileName, error: error.message });
+  }
 };
