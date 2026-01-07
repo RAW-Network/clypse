@@ -4,6 +4,10 @@ import * as uploadService from '../../services/upload.service.js';
 import * as shareService from '../../services/share.service.js';
 import config from '../../config/index.js';
 
+const videoCache = new Map();
+
+setInterval(() => videoCache.clear(), 60 * 60 * 1000);
+
 export const getAppConfig = (req, res, next) => {
   res.status(200).json({
     status: 'success',
@@ -30,7 +34,15 @@ export const getVideos = async (req, res, next) => {
 export const streamVideo = async (req, res, next) => {
   try {
     const { uuid } = req.params;
-    const video = await videoService.getVideoByUuid(uuid);
+    let video;
+
+    if (videoCache.has(uuid)) {
+      video = videoCache.get(uuid);
+    } else {
+      video = await videoService.getVideoByUuid(uuid);
+      videoCache.set(uuid, video);
+    }
+
     await streamVideoFile(req, res, video);
   } catch (error) {
     next(error);

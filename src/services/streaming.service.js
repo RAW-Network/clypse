@@ -9,20 +9,20 @@ export const streamVideoFile = async (req, res, video) => {
   const videoPath = path.join(config.paths.videos, video.file_name);
   
   try {
-    await fsp.access(videoPath, fs.constants.F_OK);
+    await fsp.access(videoPath, fs.constants.R_OK);
   } catch (e) {
-    logger.error('FILE_NOT_FOUND', { path: videoPath });
-    throw new ApiError(404, 'Video source file is missing from disk.');
+    throw new ApiError(404, 'Video source file is not ready.');
   }
 
   const stat = await fsp.stat(videoPath);
   const fileSize = stat.size;
   const range = req.headers.range;
+  const CHUNK_SIZE = 64 * 1024;
 
   if (range) {
     const parts = range.replace(/bytes=/, "").split("-");
     const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 10 ** 6, fileSize - 1);
 
     if (start >= fileSize) {
       res.status(416).send(`Requested range not satisfiable\n${start} >= ${fileSize}`);
@@ -30,7 +30,7 @@ export const streamVideoFile = async (req, res, video) => {
     }
     
     const chunksize = (end - start) + 1;
-    const file = fs.createReadStream(videoPath, { start, end, highWaterMark: 1024 * 1024 });
+    const file = fs.createReadStream(videoPath, { start, end, highWaterMark: CHUNK_SIZE });
     const head = {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
@@ -41,7 +41,11 @@ export const streamVideoFile = async (req, res, video) => {
 
     file.on('error', (err) => {
       logger.error('STREAM_ERROR', { error: err.message, path: videoPath });
-      res.end();
+      if (!res.headersSent) res.end();
+    });
+
+    res.on('close', () => {
+      file.destroy();
     });
 
     file.pipe(res);
@@ -52,11 +56,15 @@ export const streamVideoFile = async (req, res, video) => {
     };
     res.writeHead(200, head);
 
-    const file = fs.createReadStream(videoPath, { highWaterMark: 1024 * 1024 });
+    const file = fs.createReadStream(videoPath, { highWaterMark: CHUNK_SIZE });
     
     file.on('error', (err) => {
       logger.error('STREAM_ERROR', { error: err.message, path: videoPath });
-      res.end();
+      if (!res.headersSent) res.end();
+    });
+
+    res.on('close', () => {
+      file.destroy();
     });
     
     file.pipe(res);
