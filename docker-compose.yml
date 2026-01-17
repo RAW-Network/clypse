@@ -1,0 +1,15 @@
+services:
+  clypse:
+    build: .
+    container_name: clypse
+    ports:
+      - 3000:3000
+    volumes:
+      - ./data:/data
+      - ./videos:/videos
+      - ./uploads:/uploads
+    environment:
+      - TZ=UTC
+      - MAX_UPLOAD_SIZE=1G
+      - MAX_UPLOAD_COUNT=1
+    restart: unless-stopped

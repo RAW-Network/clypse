@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta property="og:title" content="CLYPSE">
+    <meta property="og:description" content="Share your gaming montages">
+    <meta property="og:image" content="/favicon.ico">
+    <meta property="og:type" content="website">
+    <title>Clypse | Modern Video Gallery</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+  </head>
+  <body>
+    <div id="root">
+      <div class="layout">
+        <header class="header">
+          <div class="container header-container">
+            <a href="#/" class="logo" id="logo-link">
+              <img src="/favicon.ico" alt="Clypse Favicon" class="logo-favicon" />
+              <span class="logo-text">Clypse</span>
+            </a>
+            <nav class="navigation">
+              <a href="#/" class="nav-link" id="home-link">Home</a>
+              <a href="#/videos" class="nav-link">Videos</a>
+            </nav>
+          </div>
+        </header>
+        <main id="main-content"></main>
+        <footer class="footer">
+          <div class="container footer-container">
+            © <span id="year"></span> <a href="https://github.com/RAW-Network/clypse" target="_blank" rel="noopener noreferrer">Clypse</a>. All rights reserved
+          </div>
+        </footer>
+      </div>
+    </div>
+    <div id="video-modal" class="modal-overlay">
+      <div class="modal-content">
+        <video id="video-player" controls playsinline autoplay preload="metadata"></video>
+      </div>
+    </div>
+    
+    <div id="toast-container"></div>
+    
+    <script src="app.js"></script>
+  </body>
+</html>
