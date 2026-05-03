@@ -1,0 +1,28 @@
+.button {
+  display: inline-flex;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  transition: opacity 0.2s;
+  font-size: 0.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button-outline {
+  background: transparent;
+  border-color: hsla(var(--border), 0.6);
+  color: hsl(var(--foreground));
+}
+
+.button-outline:hover {
+  background-color: hsl(var(--muted));
+  opacity: 1;
+}

@@ -10,6 +10,7 @@ router.post('/api/upload', videoController.uploadVideoChunk);
 router.post('/api/upload-cancel', videoController.cancelUpload);
 
 router.get('/api/videos', videoController.getVideos);
+router.get('/s/:uuid\\.:ext', videoController.streamVideoWithExt);
 router.get('/s/:uuid', validateUuid, videoController.streamVideo);
 router.get('/share/:uuid', validateUuid, videoController.getSharePage);
 

@@ -2,6 +2,7 @@ import * as videoService from '../../services/video.service.js';
 import { streamVideoFile } from '../../services/streaming.service.js';
 import * as uploadService from '../../services/upload.service.js';
 import * as shareService from '../../services/share.service.js';
+import ApiError from '../../utils/ApiError.js';
 import config from '../../config/index.js';
 
 const videoCache = new Map();
@@ -36,6 +37,28 @@ export const streamVideo = async (req, res, next) => {
     const { uuid } = req.params;
     let video;
 
+    if (videoCache.has(uuid)) {
+      video = videoCache.get(uuid);
+    } else {
+      video = await videoService.getVideoByUuid(uuid);
+      videoCache.set(uuid, video);
+    }
+
+    await streamVideoFile(req, res, video);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const streamVideoWithExt = async (req, res, next) => {
+  try {
+    const { uuid } = req.params;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(uuid)) {
+      return next(new ApiError(400, 'Invalid UUID format'));
+    }
+
+    let video;
     if (videoCache.has(uuid)) {
       video = videoCache.get(uuid);
     } else {

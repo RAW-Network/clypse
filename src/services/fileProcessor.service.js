@@ -6,7 +6,6 @@ import * as videoService from './video.service.js';
 import * as mediaService from './media.service.js';
 import * as storageService from './storage.service.js';
 import { broadcast } from './websocket.service.js';
-import { escapeHtml } from '../utils/escape.js';
 import { moveFileCrossDevice, sanitizeFilename } from '../utils/fileUtils.js';
 
 export const processUploadedFile = async (tempFilePath, originalFileName) => {
@@ -71,7 +70,7 @@ export const processUploadedFile = async (tempFilePath, originalFileName) => {
     await mediaService.generateThumbnail(finalVideoPath, config.paths.thumbnails, thumbnailFilename, metadata.duration);
 
     const rawTitle = titleBasis.replace(/_/g, ' ');
-    const videoTitle = escapeHtml(rawTitle);
+    const videoTitle = rawTitle;
 
     const videoData = {
       title: videoTitle,

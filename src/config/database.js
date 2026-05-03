@@ -25,7 +25,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 export const initializeDatabase = () => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const query = `
       CREATE TABLE IF NOT EXISTS videos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

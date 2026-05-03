@@ -8,6 +8,7 @@ const parseSize = (sizeString) => {
     K: 1024,
     M: 1024 * 1024,
     G: 1024 * 1024 * 1024,
+    T: 1024 * 1024 * 1024 * 1024,
   };
 
   const regex = /^(\d+)([BKMGT])?$/i;

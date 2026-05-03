@@ -8,11 +8,14 @@ import * as videoRepository from '../repositories/video.repository.js';
 
 export const getAllVideos = async () => {
   const rows = await videoRepository.getAll();
-  return rows.map(video => ({
-    ...video,
-    share_url: `/share/${video.uuid}`,
-    streaming_url: `/s/${video.uuid}`
-  }));
+  return rows.map(video => {
+    const ext = path.extname(video.file_name || '').toLowerCase() || '.mp4';
+    return {
+      ...video,
+      share_url: `/share/${video.uuid}`,
+      streaming_url: `/s/${video.uuid}${ext}`
+    };
+  });
 };
 
 export const getVideoByUuid = async (uuid) => {
@@ -48,7 +51,7 @@ export const createVideoEntry = async (videoData) => {
     file_name: videoData.fileName,
     created_at: params[7],
     share_url: `/share/${newUuid}`,
-    streaming_url: `/s/${newUuid}`
+    streaming_url: `/s/${newUuid}${path.extname(videoData.fileName || '').toLowerCase() || '.mp4'}`
   };
 };
 
