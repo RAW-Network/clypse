@@ -50,7 +50,6 @@ export const streamVideoFile = async (req, res, video) => {
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
       'Content-Type': contentType,
-      'Content-Disposition': `inline; filename="${video.file_name}"`,
     };
     res.writeHead(206, head);
 
@@ -69,7 +68,6 @@ export const streamVideoFile = async (req, res, video) => {
       'Content-Length': fileSize,
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
-      'Content-Disposition': `inline; filename="${video.file_name}"`,
     };
     res.writeHead(200, head);
 
